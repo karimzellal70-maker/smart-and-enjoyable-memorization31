@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>المُسمِّع الذكي AI | Pro Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+        
+        :root {
+            --bg: #050505;
+            --primary: #7c3aed;
+            --accent: #f43f5e; 
+            --success: #10b981;
+            --glass: rgba(255, 255, 255, 0.02);
+        }
+
+        body {
+            background: var(--bg);
+            background-image: radial-gradient(circle at 50% -20%, #2e1065, transparent);
+            color: #f8fafc;
+            font-family: 'Cairo', sans-serif;
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 95%;
+            max-width: 900px;
+            background: var(--glass);
+            backdrop-filter: blur(40px);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 40px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 0 80px rgba(0,0,0,0.8);
+        }
+
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            background: rgba(0,0,0,0.3);
+            padding: 15px 25px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+
+        .accuracy-meter { color: var(--success); text-shadow: 0 0 10px rgba(16, 185, 129, 0.3); }
+        .error-counter { color: var(--accent); }
+
+        .word-cloud {
+            font-size: 2.2rem;
+            line-height: 2.5;
+            margin: 30px 0;
+            min-height: 150px;
+        }
+
+        .word {
+            display: inline-block;
+            margin: 0 6px;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            opacity: 0.05;
+            filter: blur(10px);
+        }
+
+        .word.revealed {
+            opacity: 1;
+            filter: blur(0);
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .wrong-tag {
+            display: inline-block;
+            background: rgba(244, 63, 94, 0.1);
+            color: var(--accent);
+            padding: 5px 12px;
+            border-radius: 8px;
+            margin: 5px;
+            font-size: 0.9rem;
+            border: 1px solid var(--accent);
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .main-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 900;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: 0 10px 20px rgba(124, 58, 237, 0.3);
+        }
+
+        .mic-btn {
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            border: none;
+            background: #1e1b4b;
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+            margin: 10px;
+            transition: 0.4s;
+            border: 2px solid var(--primary);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mic-btn.active {
+            background: var(--accent);
+            border-color: #fff;
+            animation: pulse 1.5s infinite;
+        }
+
+        textarea {
+            width: 100%; height: 180px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            color: white;
+            padding: 20px;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            outline: none;
+            resize: none;
+        }
+
+        .hidden { display: none; }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7); transform: scale(1); }
+            70% { box-shadow: 0 0 0 20px rgba(244, 63, 94, 0); transform: scale(1.05); }
+            100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1 style="margin-top:0">المُسمِّع <span style="color:var(--primary)">الذكي</span></h1>
+
+        <div id="setupArea">
+            <p id="setupHint">اكتب النص أو اضغط للإملاء الصوتي</p>
+            <textarea id="sourceText" placeholder="مثلاً: بسم الله الرحمن الرحيم..."></textarea>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 15px;">
+                <button id="dictateBtn" class="mic-btn" onclick="toggleDictation()" title="اضغط للإملاء">🎙️</button>
+                <button class="main-btn" onclick="initApp()">تأكيد النص وبدء التسميع</button>
+            </div>
+        </div>
+
+        <div id="mainApp" class="hidden">
+            <div class="stats-bar">
+                <div class="accuracy-meter">الدقة: <span id="accuracyVal">100</span>%</div>
+                <div class="error-counter">الأخطاء: <span id="errorCount">0</span></div>
+            </div>
+
+            <div id="wordDisplay" class="word-cloud"></div>
+
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                <button id="micBtn" class="mic-btn" onclick="toggleMic()">🎤</button>
+                <p id="hintText" style="color:#64748b">اضغط وابدأ التسميع..</p>
+            </div>
+
+            <div class="wrong-words-container" id="wrongWordsBox" style="margin-top:20px;">
+                <div id="wrongWordsList"></div>
+            </div>
+
+            <button class="main-btn" style="background:#1e293b; font-size: 0.8rem; padding: 10px 20px; margin-top: 20px;" onclick="location.reload()">إعادة تعيين</button>
+        </div>
+    </div>
+
+    <script>
+        let recognition;
+        let originalWords = [];
+        let revealedIdx = new Set();
+        let errors = 0;
+        let isRecording = false;
+        let isDictating = false;
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playErrorSound() {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        if ('webkitSpeechRecognition' in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'ar-SA';
+        }
+
+        // دالة الإملاء الصوتي (المرحلة الأولى)
+        function toggleDictation() {
+            const btn = document.getElementById('dictateBtn');
+            const textarea = document.getElementById('sourceText');
+            const hint = document.getElementById('setupHint');
+
+            if (!isDictating) {
+                recognition.onresult = (event) => {
+                    let result = "";
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        result += event.results[i][0].transcript;
+                    }
+                    textarea.value = result;
+                };
+                recognition.start();
+                isDictating = true;
+                btn.classList.add('active');
+                hint.innerText = "أنا أسمعك.. تكلم بوضوح";
+                hint.style.color = "var(--accent)";
+            } else {
+                recognition.stop();
+                isDictating = false;
+                btn.classList.remove('active');
+                hint.innerText = "تم حفظ الإملاء صوتباً";
+                hint.style.color = "var(--success)";
+            }
+        }
+
+        function initApp() {
+            const text = document.getElementById('sourceText').value.trim();
+            if (!text) return alert("يرجى كتابة نص أو إملاؤه بالميكروفون!");
+
+            originalWords = text.split(/\s+/);
+            const container = document.getElementById('wordDisplay');
+            container.innerHTML = originalWords.map((w, i) => `<span class="word" id="w-${i}">${w}</span>`).join('');
+            
+            document.getElementById('setupArea').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            if(isDictating) recognition.stop();
+        }
+
+        // دالة التسميع (المرحلة الثانية)
+        function toggleMic() {
+            const btn = document.getElementById('micBtn');
+            if (!isRecording) {
+                recognition.onresult = (event) => {
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            processInput(event.results[i][0].transcript.trim());
+                        }
+                    }
+                };
+                recognition.start();
+                isRecording = true;
+                btn.classList.add('active');
+                document.getElementById('hintText').innerText = "جاري الاستماع لتسميعك...";
+            } else {
+                recognition.stop();
+                isRecording = false;
+                btn.classList.remove('active');
+                document.getElementById('hintText').innerText = "توقف الاستماع.";
+            }
+        }
+
+        function processInput(input) {
+            const spokenWords = input.split(/\s+/);
+            spokenWords.forEach(spoken => {
+                let matchFound = false;
+                originalWords.forEach((target, idx) => {
+                    if (!revealedIdx.has(idx) && isSimilar(spoken, target)) {
+                        document.getElementById(`w-${idx}`).classList.add('revealed');
+                        revealedIdx.add(idx);
+                        matchFound = true;
+                    }
+                });
+                if (!matchFound) handleError(spoken);
+            });
+            updateStats();
+        }
+
+        function handleError(word) {
+            errors++;
+            playErrorSound();
+            const list = document.getElementById('wrongWordsList');
+            const tag = document.createElement('span');
+            tag.className = 'wrong-tag';
+            tag.innerText = word;
+            list.prepend(tag);
+            document.querySelector('.container').style.animation = 'shake 0.3s ease';
+            setTimeout(() => document.querySelector('.container').style.animation = '', 300);
+        }
+
+        function updateStats() {
+            const accuracy = Math.max(0, 100 - (errors * 2)); 
+            document.getElementById('accuracyVal').innerText = Math.round(accuracy);
+            document.getElementById('errorCount').innerText = errors;
+            if (revealedIdx.size === originalWords.length) {
+                document.getElementById('hintText').innerHTML = "🎉 أحسنت! أتممت الحفظ بنجاح";
+                recognition.stop();
+            }
+        }
+
+        function isSimilar(s1, s2) {
+            const clean = (s) => s.replace(/[ًٌٍَُِّـ،؟.]/g, "").replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").trim();
+            return clean(s1) === clean(s2);
+        }
+    </script>
+</body>
+</html>
